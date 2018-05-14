@@ -25,6 +25,7 @@ function isMobileDevice() {
 };
 
 function sceneSet() {
+    
     var container = document.createElement('div');
     document.body.appendChild(container);
     scoreEl = document.getElementById('score');
@@ -60,11 +61,11 @@ function sceneSet() {
 }
 
 function postFX() {
-    //POST PROCESSING
-    //Create Shader Passes
+
     renderPass = new THREE.RenderPass(scene, camera);
 
     if (!mobile) {
+
         hblur = new THREE.ShaderPass(THREE.HorizontalTiltShiftShader);
         vblur = new THREE.ShaderPass(THREE.VerticalTiltShiftShader);
         effectVignette = new THREE.ShaderPass(THREE.VignetteShader);
@@ -77,6 +78,7 @@ function postFX() {
     composer.addPass(renderPass);
 
     if (!mobile) {
+
         composer.addPass(hblur);
         composer.addPass(vblur);
     }
@@ -92,9 +94,11 @@ function postFX() {
 }
 
 function params() {
+
     var bluriness = 5;
 
     if (!mobile) {
+
         hblur.uniforms['h'].value = bluriness / window.innerWidth;
         vblur.uniforms['v'].value = bluriness / window.innerHeight;
         hblur.uniforms['r'].value = vblur.uniforms['r'].value = 0.5;
@@ -109,15 +113,18 @@ function params() {
 }
 
 function checkLoad() {
+
     loaded++;
 
     if (loaded == itemsToLoad) {
+
         render();
         document.getElementById("preloader").style.visibility = 'hidden';
     }
 }
 
 function onWindowResize() {
+
     SCREEN_WIDTH = window.innerWidth;
     QUART_SCREEN = window.innerWidth / 4;
     windowHalfX = window.innerWidth / 2;
@@ -128,16 +135,19 @@ function onWindowResize() {
 }
 
 function map(n, start1, stop1, start2, stop2) {
+
     return ((n - start1) / (stop1 - start1)) * (stop2 - start2) + start2;
 }
 
 function onDocumentMouseMove(event) {
+
     mouseX = event.clientX;
 }
 
 function onDocumentTouchStart(event) {
 
     if (event.touches.length > 1) {
+
         event.preventDefault();
         mouseX = event.touches[0].pageX;
     }
@@ -146,6 +156,7 @@ function onDocumentTouchStart(event) {
 function onDocumentTouchMove(event) {
 
     if (event.touches.length == 1) {
+
         event.preventDefault();
         mouseX = event.touches[0].pageX;
     }
@@ -168,9 +179,10 @@ function beginGame() {
     ship.position.set(0, 0, 6);
     ship.rotation.y = 0;
     
-    ///////////// BUILD PANELS HERE /////////////
+    buildPanels();
 
     titlePane.style.visibility = 'hidden'; 
+    console.log("start");
     playing = true;
 }
 
@@ -186,12 +198,16 @@ function gameOver() {
         active.splice(i, 1);
         scene.remove(mdl.obj);
         inactive.push(mdl);
+
+        console.log(active);
+        console.log(inactive);
     }
 
     clock.stop();
 }
 
 function init() {
+
     sceneSet();
     postFX();
     inactive = [];
@@ -221,6 +237,7 @@ function init() {
         scene.add(ship);
 
         mouseX = windowHalfX;
+
         checkLoad();
     });
 
@@ -234,6 +251,7 @@ function init() {
         dae.traverse(function (child) {
     
             if (child instanceof THREE.Mesh) {
+
                 child.castShadow = true;
                 child.receiveShadow = true;
             }
@@ -242,11 +260,138 @@ function init() {
         dae.scale.x = dae.scale.y = dae.scale.z = 0.5;
         dae.updateMatrix();
 
-        ///////////// PANEL SETUP TO DO /////////////
+        /////////////SET-UP Cyan Panel ///////////////
+        var x = dae.getObjectByName("Cyan", true);
+        c = new Cyan(x);
+        //push the enemy blocks into Cyan's enemies array - doesn't seem to work from inside the Cyan object!
+        x.traverse(function (child) {
 
-        scene.add(dae);
+            if (child instanceof THREE.Mesh && child.parent.name == "enemy") {
+
+                c.enemies.push(child.parent);
+            }
+        });
+
+        inactive.push(c);
+
+        /////////////SET-UP Magenta Panel ///////////////
+        x = dae.getObjectByName("Mag", true);
+        m = new Mag(x);
+
+        x.traverse(function (child) {
+
+            if (child instanceof THREE.Mesh && child.parent.name == "enemyL") {
+
+                m.l_enemies.push(child.parent);
+
+                child.parent.update = function () {
+
+                    if (this.position.x < 5) {
+
+                        this.position.x += (120 * delta);
+                    }
+                }
+            }
+            if (child instanceof THREE.Mesh && child.parent.name == "enemyR") {
+
+                m.r_enemies.push(child.parent);
+
+                child.parent.update = function () {
+
+                    if (this.position.x > -5) {
+
+                        this.position.x -= (120 * delta);
+                    }
+                }
+            }
+        });
+
+        inactive.push(m);
+
+        /////////////SET-UP Orange Panel ///////////////
+        x = dae.getObjectByName("Oj", true);
+        o = new Oj(x);
+        o.enemies = [];
+
+        x.traverse(function (child) {
+
+            if (child instanceof THREE.Mesh && child.parent.name == "stick") {
+
+                o.enemies.push(child.parent);
+            }
+        });
+
+        inactive.push(o);
+
+        /////////////SET-UP Lime Panel ///////////////
+        var x = dae.getObjectByName("Lime", true);
+        l = new Lime(x);
+        l.init();
+        inactive.push(l);
+
         checkLoad();
     });
+}
+
+
+function buildPanels() {
+
+    //first build - add the lime panel
+    if (active.length == 0) {
+    
+        for (i = 0; i < inactive.length; i++) {
+    
+            if (inactive[i].obj.name == "Lime") {
+    
+                var pln = inactive[i];
+                active.push(pln);
+                scene.add(pln.obj);
+                pln.reset();
+                pln.obj.position.z = 10;
+                inactive.splice(i, 1);
+            }
+        }
+    }
+
+    addRndm();
+}
+
+function addRndm() {
+
+    var amnt = inactive.length;
+    var rndm = Math.floor(Math.random() * amnt);
+    var mdl = inactive[rndm];
+    mdl.reset();
+    mdl.obj.position.z = active[0].obj.position.z - 500;
+    scene.add(mdl.obj);
+    console.log(mdl.obj.position.z);
+    active.push(mdl);
+    inactive.splice(rndm, 1);
+
+    console.log("******BUILD ******* ");
+    
+    for (i = 0; i < active.length; i++) {
+    
+        console.log("Active panel " + i);
+        console.log(active[i]);
+    }
+    for (i = 0; i < inactive.length; i++) {
+    
+        console.log("Inactive panel " + i);
+        console.log(inactive[i]);
+    }
+    //update panel count and increase speed every 8
+    pCounter += 1;
+
+    if (pCounter %= 2) {
+    
+        if (SPEED < 3) {
+    
+            SPEED += 5;
+            console.log(SPEED);
+        }
+    }
+
 }
 
 function render() {
@@ -256,8 +401,7 @@ function render() {
 
     if (playing) {
         
-        ///////////// UPDATE PANELS TO DO HERE /////////////
-        
+        updatePanels();
         updateShip();
         score++;
         scoreEl.innerHTML = "Score:<br>" + score;
@@ -271,7 +415,7 @@ function render() {
     filmPass.uniforms['time'].value = shaderTime;
     composer.render(0.1);
     
-    ///////////// COLLISION TEST TO DO HERE /////////////
+    collisionTest();
     
     if (dead == true && playing == true) {
 
@@ -282,10 +426,185 @@ function render() {
 
 init();
 
+function updatePanels() {
+
+    for (i = active.length - 1; i >= 0; i--) {
+
+        var mdl = active[i];
+        mdl.update();
+
+        if (mdl.obj.position.z >= 520) {
+
+            active.splice(i, 1);
+            scene.remove(mdl.obj);
+            inactive.push(mdl);
+            buildPanels();
+        }
+    }
+}
+
 function updateShip() {
+
     var newX = map(mouseX, QUART_SCREEN, QUART_SCREEN * 3, -15, 15);
     ship.position.x += ((newX) - ship.position.x) * 0.05;
     if (ship.position.x < -15) ship.position.x = -15;
     if (ship.position.x > 15) ship.position.x = 15;
     ship.rotation.z = (ship.position.x - newX) * 0.1;
 }
+
+function collisionTest() {
+    // collision detection - firing 2 rays for each side of the ship
+    for (var i = 0; i < 2; i++) {
+
+        var originPoint = ship.position.clone();
+        originPoint.x += (i * 2.6) - 1.3;
+        raycaster.ray.origin.copy(originPoint);
+        let intersections = raycaster.intersectObjects(scene.children, true);
+        
+        if (intersections.length > 0) {
+        
+            var distance = intersections[0].distance;
+            console.log(distance);
+            console.log(intersections[0]);
+        
+            if (distance < 3.5) {
+        
+                console.log("dead");
+                dead = true;
+                distance = null;
+                break;
+            }
+        }
+    }
+}
+
+//track sections
+
+function Cyan(obj) {
+    this.obj = obj;
+    this.enemies = [];
+}
+Cyan.prototype.reset = function () {
+
+    for (var i = 0; i < this.enemies.length; i++) {
+        
+        let rpos = Math.floor(Math.random() * 6);
+        this.enemies[i].position.x = (rpos * 9) - 18;
+    }
+};
+
+Cyan.prototype.update = function () {
+    this.obj.position.z += (SPEED * delta);
+};
+
+function Mag(obj) {
+    this.obj = obj;
+    this.enemies = [];
+    this.l_enemies = []; 
+    this.r_enemies = [];
+}
+Mag.prototype.reset = function () {
+
+    for (var i = 0; i < m.l_enemies.length; i++) {
+
+        this.l_enemies[i].position.x = -30;
+        this.r_enemies[i].position.x = 30;
+    }
+
+    this.enemies = [];
+
+    for (var i = 0; i < 4; i++) {
+
+        let rnd = Math.floor(Math.random() * 2);
+        
+        if (rnd == 1) {
+            this.enemies.push(this.l_enemies[i]);
+        } else {
+            this.enemies.push(this.r_enemies[i]);
+        }
+    }
+};
+
+Mag.prototype.update = function () {
+
+    this.obj.position.z += (SPEED * delta);
+
+    if (this.obj.position.z > -10) {
+        this.enemies[0].update();
+    }
+    if (this.obj.position.z > 80) {
+        this.enemies[1].update();
+    }
+    if (this.obj.position.z > 170) {
+        this.enemies[2].update();
+    }
+    if (this.obj.position.z > 280) {
+        this.enemies[3].update();
+    }
+};
+
+function Oj(obj) {
+    this.obj = obj;
+    this.enemies = [];
+}
+
+Oj.prototype.reset = function () {
+
+    for (var i = 0; i < this.enemies.length; i++) {
+    
+        let rpos = Math.floor(Math.random() * 4);
+        this.enemies[i].position.x = (rpos * 10) - 25;
+        this.enemies[i].rotation.z = Math.PI; 
+        this.enemies[i].add(this.snd);
+    }
+};
+
+Oj.prototype.update = function () {
+
+    this.obj.position.z += (SPEED * delta);
+    
+    if (this.obj.position.z > -10) {
+    
+        this.enemies[0].rotation.z -= 0.05;
+        this.enemies[0].children[1].rotation.z += delta * (Math.PI * 2);
+    }
+    if (this.obj.position.z > 85) {
+    
+        this.enemies[1].rotation.z -= 0.05;
+        this.enemies[1].children[1].rotation.z += delta * (Math.PI * 2);
+    }
+    if (this.obj.position.z > 175) {
+    
+        this.enemies[2].rotation.z -= 0.05;
+        this.enemies[2].children[1].rotation.z += delta * (Math.PI * 2);
+    }
+};
+
+function Lime(obj) {
+    this.obj = obj;
+    this.tubes;
+    this.init();
+}
+
+Lime.prototype.init = function () {
+    this.tubes = this.obj.getObjectByName("Tubes", true);
+};
+
+Lime.prototype.reset = function () {}
+
+Lime.prototype.update = function () {
+    
+    this.obj.position.z += (SPEED * delta);
+    this.tubes.rotation.z += 0.01;
+};
+
+function getRand(minVal, maxVal) {
+    return minVal + (Math.random() * (maxVal - minVal));
+}
+
+
+
+
+
+
+
